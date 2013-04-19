@@ -16,7 +16,6 @@ package de.juplo.plugins.hibernate4;
  * limitations under the License.
  */
 
-import com.pyx4j.log4j.MavenLogAppender;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -45,18 +44,23 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.logging.Logger;
+
 import javax.persistence.Embeddable;
 import javax.persistence.Entity;
 import javax.persistence.MappedSuperclass;
+
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.cfg.NamingStrategy;
 import org.hibernate.tool.hbm2ddl.SchemaExport;
 import org.hibernate.tool.hbm2ddl.SchemaExport.Type;
 import org.hibernate.tool.hbm2ddl.Target;
 import org.scannotation.AnnotationDB;
+
+import com.pyx4j.log4j.MavenLogAppender;
 
 
 /**
@@ -77,6 +81,8 @@ public class Hbm2DdlMojo extends AbstractMojo
   public final static String USERNAME = "hibernate.connection.username";
   public final static String PASSWORD = "hibernate.connection.password";
   public final static String DIALECT = "hibernate.dialect";
+  // [nicus]
+  public final static String NAMING_STRATEGY="hibernate.ejb.naming_strategy";
 
   private final static String MD5S = "schema.md5s";
 
@@ -269,18 +275,18 @@ public class Hbm2DdlMojo extends AbstractMojo
 
     Map<String,String> md5s;
     boolean modified = false;
-    File saved = new File(buildDirectory + File.separator + MD5S);
+    final File saved = new File(buildDirectory + File.separator + MD5S);
 
     if (saved.exists())
     {
       try
       {
-        FileInputStream fis = new FileInputStream(saved);
-        ObjectInputStream ois = new ObjectInputStream(fis);
+        final FileInputStream fis = new FileInputStream(saved);
+        final ObjectInputStream ois = new ObjectInputStream(fis);
         md5s = (HashMap<String,String>)ois.readObject();
         ois.close();
       }
-      catch (Exception e)
+      catch (final Exception e)
       {
         md5s = new HashMap<String,String>();
         getLog().warn("Cannot read timestamps from saved: " + e);
@@ -293,7 +299,7 @@ public class Hbm2DdlMojo extends AbstractMojo
       {
         saved.createNewFile();
       }
-      catch (IOException e)
+      catch (final IOException e)
       {
         getLog().warn("Cannot create saved for timestamps: " + e);
       }
@@ -303,10 +309,10 @@ public class Hbm2DdlMojo extends AbstractMojo
     try
     {
       getLog().debug("Creating ClassLoader for project-dependencies...");
-      List<String> classpathFiles = project.getCompileClasspathElements();
+      final List<String> classpathFiles = project.getCompileClasspathElements();
       if (scanTestClasses)
         classpathFiles.addAll(project.getTestClasspathElements());
-      URL[] urls = new URL[classpathFiles.size()];
+      final URL[] urls = new URL[classpathFiles.size()];
       for (int i = 0; i < classpathFiles.size(); ++i)
       {
         getLog().debug("Dependency: " + classpathFiles.get(i));
@@ -314,17 +320,17 @@ public class Hbm2DdlMojo extends AbstractMojo
       }
       classLoader = new URLClassLoader(urls, getClass().getClassLoader());
     }
-    catch (Exception e)
+    catch (final Exception e)
     {
       getLog().error("Error while creating ClassLoader!", e);
       throw new MojoExecutionException(e.getMessage());
     }
 
-    Set<Class<?>> classes =
+    final Set<Class<?>> classes =
         new TreeSet<Class<?>>(
             new Comparator<Class<?>>() {
               @Override
-              public int compare(Class<?> a, Class<?> b)
+              public int compare(final Class<?> a, final Class<?> b)
               {
                 return a.getName().compareTo(b.getName());
               }
@@ -333,7 +339,7 @@ public class Hbm2DdlMojo extends AbstractMojo
 
     try
     {
-      AnnotationDB db = new AnnotationDB();
+      final AnnotationDB db = new AnnotationDB();
       getLog().info("Scanning directory " + outputDirectory + " for annotated classes...");
       URL dirUrl = dir.toURI().toURL();
       db.scanArchives(dirUrl);
@@ -347,7 +353,7 @@ public class Hbm2DdlMojo extends AbstractMojo
         db.scanArchives(dirUrl);
       }
 
-      Set<String> classNames = new HashSet<String>();
+      final Set<String> classNames = new HashSet<String>();
       if (db.getAnnotationIndex().containsKey(Entity.class.getName()))
         classNames.addAll(db.getAnnotationIndex().get(Entity.class.getName()));
       if (db.getAnnotationIndex().containsKey(MappedSuperclass.class.getName()))
@@ -355,23 +361,23 @@ public class Hbm2DdlMojo extends AbstractMojo
       if (db.getAnnotationIndex().containsKey(Embeddable.class.getName()))
         classNames.addAll(db.getAnnotationIndex().get(Embeddable.class.getName()));
 
-      MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
-      for (String name : classNames)
+      final MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
+      for (final String name : classNames)
       {
-        Class<?> annotatedClass = classLoader.loadClass(name);
+        final Class<?> annotatedClass = classLoader.loadClass(name);
         classes.add(annotatedClass);
-        InputStream is =
+        final InputStream is =
             annotatedClass
                 .getResourceAsStream(annotatedClass.getSimpleName() + ".class");
-        byte[] buffer = new byte[1024*4]; // copy data in 4MB-chunks
+        final byte[] buffer = new byte[1024*4]; // copy data in 4MB-chunks
         int i;
         while((i = is.read(buffer)) > -1)
           digest.update(buffer, 0, i);
         is.close();
-        byte[] bytes = digest.digest();
-        BigInteger bi = new BigInteger(1, bytes);
-        String newMd5 = String.format("%0" + (bytes.length << 1) + "x", bi);
-        String oldMd5 = !md5s.containsKey(name) ? "" : md5s.get(name);
+        final byte[] bytes = digest.digest();
+        final BigInteger bi = new BigInteger(1, bytes);
+        final String newMd5 = String.format("%0" + (bytes.length << 1) + "x", bi);
+        final String oldMd5 = !md5s.containsKey(name) ? "" : md5s.get(name);
         if (!newMd5.equals(oldMd5))
         {
           getLog().debug("Found new or modified annotated class: " + name);
@@ -384,12 +390,12 @@ public class Hbm2DdlMojo extends AbstractMojo
         }
       }
     }
-    catch (ClassNotFoundException e)
+    catch (final ClassNotFoundException e)
     {
       getLog().error("Error while adding annotated classes!", e);
       throw new MojoExecutionException(e.getMessage());
     }
-    catch (Exception e)
+    catch (final Exception e)
     {
       getLog().error("Error while scanning!", e);
       throw new MojoFailureException(e.getMessage());
@@ -399,16 +405,16 @@ public class Hbm2DdlMojo extends AbstractMojo
       throw new MojoFailureException("No annotated classes found in directory " + outputDirectory);
 
     getLog().debug("Detected classes with mapping-annotations:");
-    for (Class<?> annotatedClass : classes)
+    for (final Class<?> annotatedClass : classes)
       getLog().debug("  " + annotatedClass.getName());
 
 
-    Properties properties = new Properties();
+    final Properties properties = new Properties();
 
     /** Try to read configuration from properties-file */
     try
     {
-      File file = new File(hibernateProperties);
+      final File file = new File(hibernateProperties);
       if (file.exists())
       {
         getLog().info("Reading properties from file " + hibernateProperties + "...");
@@ -417,7 +423,7 @@ public class Hbm2DdlMojo extends AbstractMojo
       else
         getLog().info("No hibernate-properties-file found! (Checked path: " + hibernateProperties + ")");
     }
-    catch (IOException e)
+    catch (final IOException e)
     {
       getLog().error("Error while reading properties!", e);
       throw new MojoExecutionException(e.getMessage());
@@ -466,7 +472,7 @@ public class Hbm2DdlMojo extends AbstractMojo
         getLog().debug(
             "Overwriting property " +
             PASSWORD + "=" + properties.getProperty(PASSWORD) +
-            " with the value " + password 
+            " with the value " + password
           );
       else
         getLog().debug("Using the value " + password);
@@ -488,7 +494,7 @@ public class Hbm2DdlMojo extends AbstractMojo
     /** The generated SQL varies with the dialect! */
     if (md5s.containsKey(DIALECT))
     {
-      String dialect = properties.getProperty(DIALECT);
+      final String dialect = properties.getProperty(DIALECT);
       if (md5s.get(DIALECT).equals(dialect))
         getLog().debug("SQL-dialect unchanged.");
       else
@@ -510,10 +516,25 @@ public class Hbm2DdlMojo extends AbstractMojo
       throw new MojoFailureException("Hibernate-Configuration is missing!");
     }
 
-    Configuration config = new Configuration();
+    final Configuration config = new Configuration();
     config.setProperties(properties);
+
+    // [nicus] Explicitly set NamingStrategy
+    if ( properties.containsKey(NAMING_STRATEGY)) {
+    	final String namingStrategy = properties.getProperty(NAMING_STRATEGY);
+    	getLog().debug("Explicitly set NamingStrategy: " + namingStrategy);
+    	try {
+    		@SuppressWarnings("unchecked")
+			final Class<NamingStrategy> namingStrategyClass = (Class<NamingStrategy>) Class.forName(namingStrategy);
+			config.setNamingStrategy(  namingStrategyClass.newInstance() );
+		} catch (final Exception e) {
+		      getLog().error("Error setting NamingStrategy", e);
+		      throw new MojoExecutionException(e.getMessage());
+		}
+    }
+
     getLog().debug("Adding annotated classes to hibernate-mapping-configuration...");
-    for (Class<?> annotatedClass : classes)
+    for (final Class<?> annotatedClass : classes)
     {
       getLog().debug("Class " + annotatedClass);
       config.addAnnotatedClass(annotatedClass);
@@ -524,7 +545,7 @@ public class Hbm2DdlMojo extends AbstractMojo
     {
       target = Target.valueOf(this.target.toUpperCase());
     }
-    catch (IllegalArgumentException e)
+    catch (final IllegalArgumentException e)
     {
       getLog().error("Invalid value for configuration-option \"target\": " + this.target);
       getLog().error("Valid values are: NONE, SCRIPT, EXPORT, BOTH");
@@ -535,7 +556,7 @@ public class Hbm2DdlMojo extends AbstractMojo
     {
       type = Type.valueOf(this.type.toUpperCase());
     }
-    catch (IllegalArgumentException e)
+    catch (final IllegalArgumentException e)
     {
       getLog().error("Invalid value for configuration-option \"type\": " + this.type);
       getLog().error("Valid values are: NONE, CREATE, DROP, BOTH");
@@ -560,7 +581,7 @@ public class Hbm2DdlMojo extends AbstractMojo
     }
 
     getLog().info("Gathered hibernate-configuration (turn on debugging for details):");
-    for (Entry<Object,Object> entry : properties.entrySet())
+    for (final Entry<Object,Object> entry : properties.entrySet())
       getLog().info("  " + entry.getKey() + " = " + entry.getValue());
 
     Connection connection = null;
@@ -580,7 +601,7 @@ public class Hbm2DdlMojo extends AbstractMojo
             case CREATE:
             case DROP:
             case BOTH:
-              Class driverClass = classLoader.loadClass(properties.getProperty(DRIVER_CLASS));
+              final Class driverClass = classLoader.loadClass(properties.getProperty(DRIVER_CLASS));
               getLog().debug("Registering JDBC-driver " + driverClass.getName());
               DriverManager.registerDriver(new DriverProxy((Driver)driverClass.newInstance()));
               getLog().debug(
@@ -599,15 +620,15 @@ public class Hbm2DdlMojo extends AbstractMojo
           }
       }
     }
-    catch (ClassNotFoundException e)
+    catch (final ClassNotFoundException e)
     {
       getLog().error("Dependency for driver-class " + properties.getProperty(DRIVER_CLASS) + " is missing!");
       throw new MojoExecutionException(e.getMessage());
     }
-    catch (Exception e)
+    catch (final Exception e)
     {
       getLog().error("Cannot establish connection to database!");
-      Enumeration<Driver> drivers = DriverManager.getDrivers();
+      final Enumeration<Driver> drivers = DriverManager.getDrivers();
       if (!drivers.hasMoreElements())
         getLog().error("No drivers registered!");
       while (drivers.hasMoreElements())
@@ -615,7 +636,7 @@ public class Hbm2DdlMojo extends AbstractMojo
       throw new MojoExecutionException(e.getMessage());
     }
 
-    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+    final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     MavenLogAppender.startPluginLog(this);
     try
     {
@@ -625,13 +646,13 @@ public class Hbm2DdlMojo extends AbstractMojo
        */
       Thread.currentThread().setContextClassLoader(classLoader);
 
-      SchemaExport export = new SchemaExport(config, connection);
+      final SchemaExport export = new SchemaExport(config, connection);
       export.setOutputFile(outputFile);
       export.setDelimiter(delimiter);
       export.setFormat(format);
       export.execute(target, type);
 
-      for (Object exception : export.getExceptions())
+      for (final Object exception : export.getExceptions())
         getLog().debug(exception.toString());
     }
     finally
@@ -648,7 +669,7 @@ public class Hbm2DdlMojo extends AbstractMojo
         if (connection != null)
           connection.close();
       }
-      catch (SQLException e)
+      catch (final SQLException e)
       {
         getLog().error("Error while closing connection: " + e.getMessage());
       }
@@ -657,13 +678,13 @@ public class Hbm2DdlMojo extends AbstractMojo
     /** Write md5-sums for annotated classes to file */
     try
     {
-      FileOutputStream fos = new FileOutputStream(saved);
-      ObjectOutputStream oos = new ObjectOutputStream(fos);
+      final FileOutputStream fos = new FileOutputStream(saved);
+      final ObjectOutputStream oos = new ObjectOutputStream(fos);
       oos.writeObject(md5s);
       oos.close();
       fos.close();
     }
-    catch (Exception e)
+    catch (final Exception e)
     {
       getLog().error("Cannot write md5-sums to file: " + e);
     }
@@ -679,7 +700,7 @@ public class Hbm2DdlMojo extends AbstractMojo
   {
     private final Driver target;
 
-    DriverProxy(Driver target)
+    DriverProxy(final Driver target)
     {
       if (target == null)
         throw new NullPointerException();
@@ -692,15 +713,15 @@ public class Hbm2DdlMojo extends AbstractMojo
     }
 
     @Override
-    public boolean acceptsURL(String url) throws SQLException
+    public boolean acceptsURL(final String url) throws SQLException
     {
       return target.acceptsURL(url);
     }
 
     @Override
     public java.sql.Connection connect(
-        String url,
-        java.util.Properties info
+        final String url,
+        final java.util.Properties info
       )
       throws
         SQLException
@@ -722,8 +743,8 @@ public class Hbm2DdlMojo extends AbstractMojo
 
     @Override
     public DriverPropertyInfo[] getPropertyInfo(
-        String url,
-        Properties info
+        final String url,
+        final Properties info
       )
       throws
         SQLException
@@ -759,11 +780,11 @@ public class Hbm2DdlMojo extends AbstractMojo
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(final Object obj)
     {
       if (!(obj instanceof DriverProxy))
         return false;
-      DriverProxy other = (DriverProxy) obj;
+      final DriverProxy other = (DriverProxy) obj;
       return this.target.equals(other.target);
     }
   }
