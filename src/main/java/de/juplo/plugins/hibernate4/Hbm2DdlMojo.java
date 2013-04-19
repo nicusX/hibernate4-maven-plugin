@@ -204,6 +204,13 @@ public class Hbm2DdlMojo extends AbstractMojo
   private String hibernateDialect;
 
   /**
+   * Hibernate Naming Strategy
+   * @parameter property="hibernate.ejb.naming_strategy"
+   * @author nicus
+   */
+  private String hibernateNamingStrategy;
+
+  /**
    * Path to Hibernate configuration file.
    *
    * @parameter default-value="${project.build.outputDirectory}/hibernate.properties"
@@ -489,6 +496,18 @@ public class Hbm2DdlMojo extends AbstractMojo
       else
         getLog().debug("Using the value " + hibernateDialect);
       properties.setProperty(DIALECT, hibernateDialect);
+    }
+    // [nicus]
+    if ( hibernateNamingStrategy != null ) {
+    	if ( properties.contains(NAMING_STRATEGY))
+            getLog().debug(
+                "Overwriting property " +
+                NAMING_STRATEGY + "=" + properties.getProperty(NAMING_STRATEGY) +
+                " with the value " + hibernateNamingStrategy
+              );
+    	else
+    		getLog().debug("Using the value " + hibernateNamingStrategy);
+    	properties.setProperty(NAMING_STRATEGY, hibernateNamingStrategy);
     }
 
     /** The generated SQL varies with the dialect! */
